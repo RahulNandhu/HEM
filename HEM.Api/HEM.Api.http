@@ -1,0 +1,6 @@
+@HEM.Api_HostAddress = http://localhost:5059
+
+GET {{HEM.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
