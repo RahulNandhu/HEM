@@ -18,6 +18,7 @@ public static partial class IocExtensions
         services.RegisterDbContext(builder.Configuration);
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();
+        services.AddSignalR();
     }
 
     private static void AddFrameworkServices(this IServiceCollection services)
@@ -48,7 +49,7 @@ public static partial class IocExtensions
                 builder =>
                 {
                     builder
-                        .WithOrigins("https://ui.buduportal.com", "http://localhost:3000", "https://demo.ui.buduportal.com", "https://staging.ui.buduportal.com")
+                        .WithOrigins("http://localhost:5174")
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials();
@@ -56,8 +57,4 @@ public static partial class IocExtensions
         });
     }
 
-    private static void AddModuleServices(this IServiceCollection services)
-    {
-        services.AddMemoryCache();
-    }
 }
