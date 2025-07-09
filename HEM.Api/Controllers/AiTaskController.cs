@@ -8,9 +8,9 @@ namespace HEM.Api.Controllers
     public class AiTaskController(IAiTaskService aiTaskService): Controller
     {
         [HttpPost("send")]
-        public async Task<IActionResult> TaskSplitting(string input)
+        public async Task<IActionResult> TaskSplitting(string user, string input)
         {
-            var response = await aiTaskService.TaskSplitting(input);
+            var response = await aiTaskService.TaskSplitting(user, input);
             return Ok(response);
         }
     }

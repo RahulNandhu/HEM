@@ -2,5 +2,5 @@
 
 public interface IAiTaskService
 {
-    Task<string> TaskSplitting(string input);
+    Task<string> TaskSplitting(string name, string input);
 }

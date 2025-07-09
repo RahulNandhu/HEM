@@ -15,7 +15,7 @@ public static partial class IocExtensions
         services.AddFrameworkServices();
         services.AddHttpClient();
         services.AddModuleServices();
-        services.RegisterDbContext(builder.Configuration);
+        //services.RegisterDbContext(builder.Configuration);
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();
         services.AddSignalR();
@@ -56,5 +56,7 @@ public static partial class IocExtensions
                 });
         });
     }
+
+
 
 }
