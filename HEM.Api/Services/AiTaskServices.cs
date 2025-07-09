@@ -10,13 +10,14 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
 {
     public async Task<string> TaskSplitting(string user, string input)
     {
-        var apiLink = configuration["CopilotAi:ApiLink"];
+        var apiLink = configuration["CopilotAi:ApiKey"];
         var apiKey = configuration["CopilotAi:ApiKey"];
         using var httpClient = new HttpClient();
         httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
         var connectionString = configuration.GetSection("ConnectionStrings")["DefaultConnection"];
         string? agentKey = null;
 
+        if (user == "Priyanka")
         try
         {
             using (SqlConnection connection = new SqlConnection(connectionString))
@@ -109,6 +110,55 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
     public class From
     {
         public string Id { get; set; }
+    }
+
+    public async Task<EmployeeLoginInfo?> LoginDetails(string username, string password)
+    {
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        EmployeeLoginInfo? employee = null;
+
+        try
+        {
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                string query = @"
+              SELECT Id, Name, Role, UserName, Password
+              FROM BCMCHMicro.dbo.Employees
+              WHERE LOWER(UserName) = LOWER(@UserName)";
+
+                using (SqlCommand command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@UserName", username);
+
+                    await connection.OpenAsync();
+
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            var dbPassword = reader["Password"] as string;
+
+                            if (dbPassword == password)
+                            {
+                                employee = new EmployeeLoginInfo
+                                {
+                                    Id = Convert.ToInt32(reader["Id"]),
+                                    Name = reader["Name"] as string,
+                                    Role = reader["Role"] as string,
+                                    UserName = reader["UserName"] as string
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+
+        return employee;
     }
 
 
