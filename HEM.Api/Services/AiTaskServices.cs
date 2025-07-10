@@ -1,4 +1,5 @@
 ﻿using HEM.Api.Interfaces;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.SqlClient;
 using System.Net.Http.Headers;
 using System.Text;
@@ -11,11 +12,12 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
     public async Task<string> TaskSplitting(string user, string input)
     {
         var apiLink = configuration["CopilotAi:ApiLink"];
-        var apiKey = configuration["CopilotAi:AdminKey"];
+        var apiKey = configuration["CopilotAi:ApiKey"];
         using var httpClient = new HttpClient();
         httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
         var connectionString = configuration.GetSection("ConnectionStrings")["DefaultConnection"];
         string? agentKey = null;
+        UserStory story = null;
 
         if (user.ToLower() == "priyanka")
         {
@@ -47,8 +49,8 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
                     await connection.OpenAsync();
 
                     agentKey = await command.ExecuteScalarAsync() as string;
-                    //agentKey = "6H4mgJoUAYKHvLLjqtlwnn-in"; pri
-                    //agentKey = ""
+                    //agentKey = "BpoOBDDEQhlCGiGkK5MmxH-in"; //pri
+                    //agentKey = "CwI4hdevcR4JP7uQ5NtFmM-in"; //sa
                 }
             }
         }
@@ -60,7 +62,109 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
         var response = await httpClient.PostAsync($"{apiLink}/conversations", null);
         var conversationData = await response.Content.ReadFromJsonAsync<ConversationStartResponse>();
 
+        
         string conversationId = conversationData.ConversationId;
+
+        string lowerInput = input.ToLower();
+
+        bool hasStory = lowerInput.Contains("story") || lowerInput.Contains("stories");
+        bool hasUnassigned =
+            lowerInput.Contains("unassigned") ||
+            lowerInput.Contains("not assigned");
+
+        if(hasStory && hasUnassigned)
+        {
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    string query = $@"
+                                   SELECT TOP 1 Description, Status
+                                   FROM BCMCHMicro.dbo.UserStories
+                                   WHERE Id = 1";
+                    using (SqlCommand command = new SqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@Id", 1);
+                        await connection.OpenAsync();
+                        using (SqlDataReader reader = await command.ExecuteReaderAsync())
+                        {
+                            if (await reader.ReadAsync())
+                            {
+                                story = new UserStory
+                                {
+                                    Description = reader.GetString(0),
+                                    Status = reader.GetString(1)
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+        }
+
+
+        bool hasSplit = lowerInput.Contains("split") || lowerInput.Contains("splite");
+        bool hasAssign =
+            lowerInput.Contains("assign");
+
+        if (hasSplit && hasAssign)
+        {
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    string query = @"
+                                    UPDATE BCMCHMicro.dbo.UserStories
+                                    SET Status = @Status
+                                    WHERE Id = @Id";
+                    using (SqlCommand command = new SqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@Status", "Assigned");
+                        command.Parameters.AddWithValue("@Id", 1);
+                        await connection.OpenAsync();
+                        await command.ExecuteNonQueryAsync();
+                        string selectQuery = @"
+                SELECT Id, Description, Status
+                FROM BCMCHMicro.dbo.UserStories
+                WHERE Id = @Id";
+
+                        using (SqlCommand selectCommand = new SqlCommand(selectQuery, connection))
+                        {
+                            selectCommand.Parameters.AddWithValue("@Id", 1);
+
+                            using (SqlDataReader reader = await selectCommand.ExecuteReaderAsync())
+                            {
+                                if (await reader.ReadAsync())
+                                {
+                                    story = new UserStory
+                                    {
+                                        Description = reader.GetString(1),
+                                        Status = reader.GetString(2)
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+        }
+
+        if (story != null)
+        {
+            string storyJson = JsonSerializer.Serialize(story, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+            input = $"{input}\n\nuser story: {storyJson}";
+        }
 
         var activityData = new
         {
@@ -122,6 +226,12 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
         public string Agent { get; set; }
         public string UserName { get; set; }
         public string ApiKey { get; set; }
+    }
+
+    public class UserStory
+    {
+        public string Description { get; set; }
+        public string Status { get; set; }
     }
 
     public class From
