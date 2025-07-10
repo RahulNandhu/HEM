@@ -10,22 +10,37 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
 {
     public async Task<string> TaskSplitting(string user, string input)
     {
-        var apiLink = configuration["CopilotAi:ApiKey"];
+        var apiLink = configuration["CopilotAi:ApiLink"];
         var apiKey = configuration["CopilotAi:ApiKey"];
         using var httpClient = new HttpClient();
         httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
         var connectionString = configuration.GetSection("ConnectionStrings")["DefaultConnection"];
         string? agentKey = null;
 
-        if (user == "Priyanka")
+        if (user.ToLower() == "priyanka")
+        {
+            apiKey = configuration["CopilotAi:ApiKey"];
+        }
+        else if (user.ToLower() == "salim")
+        {
+            apiKey = configuration["CopilotAi:ApiKey"];
+        }
+        else if(user.ToLower() == "shiyas") {
+            apiKey = configuration["CopilotAi:SKey"];
+        }
+        else
+        {
+            apiKey = configuration["CopilotAi:ApiKey"];
+        }
+
         try
         {
             using (SqlConnection connection = new SqlConnection(connectionString))
             {
                 string query = $@"
-                SELECT TOP 1 ApiKey
-                FROM BCMCHMicro.dbo.AgentDetails
-                WHERE UserName = @userName";
+                                   SELECT TOP 1 ApiKey
+                                   FROM BCMCHMicro.dbo.AgentDetails
+                                   WHERE UserName = @userName";
                 using (SqlCommand command = new SqlCommand(query, connection))
                 {
                     command.Parameters.AddWithValue("@UserName", user);
@@ -35,7 +50,7 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
                 }
             }
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             Console.WriteLine(ex.ToString());
         }
@@ -61,7 +76,7 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
         };
 
         await httpClient.SendAsync(sendMessageRequest);
-        await Task.Delay(10000);
+        await Task.Delay(13000);
 
         var getActivitiesRequest = new HttpRequestMessage(HttpMethod.Get, $"{apiLink}/conversations/{agentKey}/activities");
         getActivitiesRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
