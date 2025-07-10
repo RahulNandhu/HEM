@@ -35,28 +35,31 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
             apiKey = configuration["CopilotAi:ApiKey"];
         }
 
-        try
+        if (user.ToLower() == "salim")
         {
-            using (SqlConnection connection = new SqlConnection(connectionString))
+            try
             {
-                string query = $@"
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    string query = $@"
                                    SELECT TOP 1 ApiKey
                                    FROM BCMCHMicro.dbo.AgentDetails
                                    WHERE UserName = @userName";
-                using (SqlCommand command = new SqlCommand(query, connection))
-                {
-                    command.Parameters.AddWithValue("@UserName", user);
-                    await connection.OpenAsync();
+                    using (SqlCommand command = new SqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@UserName", user);
+                        await connection.OpenAsync();
 
-                    agentKey = await command.ExecuteScalarAsync() as string;
-                    //agentKey = "BpoOBDDEQhlCGiGkK5MmxH-in"; //pri
-                    //agentKey = "CwI4hdevcR4JP7uQ5NtFmM-in"; //sa
+                        agentKey = await command.ExecuteScalarAsync() as string;
+                        //agentKey = "BpoOBDDEQhlCGiGkK5MmxH-in"; //pri
+                        //agentKey = "CwI4hdevcR4JP7uQ5NtFmM-in"; //sa
+                    }
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.ToString());
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
         }
 
         var response = await httpClient.PostAsync($"{apiLink}/conversations", null);
@@ -64,6 +67,7 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
 
         
         string conversationId = conversationData.ConversationId;
+        agentKey = conversationId;
 
         string lowerInput = input.ToLower();
 
@@ -71,15 +75,16 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
         bool hasUnassigned =
             lowerInput.Contains("unassigned") ||
             lowerInput.Contains("not assigned");
+        bool hasS = lowerInput.Contains("split") || lowerInput.Contains("splite");
 
-        if(hasStory && hasUnassigned)
+        if (hasStory && hasUnassigned && !hasS)
         {
             try
             {
                 using (SqlConnection connection = new SqlConnection(connectionString))
                 {
                     string query = $@"
-                                   SELECT TOP 1 Description, Status
+                                   SELECT TOP 1 Status, Description
                                    FROM BCMCHMicro.dbo.UserStories
                                    WHERE Id = 1";
                     using (SqlCommand command = new SqlCommand(query, connection))
@@ -92,9 +97,20 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
                             {
                                 story = new UserStory
                                 {
-                                    Description = reader.GetString(0),
-                                    Status = reader.GetString(1)
+                                    Status = reader.GetString(0),
+                                    Description = reader.GetString(1)
+                                    
                                 };
+                                if (story != null)
+                                {
+                                    await Task.Delay(10000);
+                                    return "The unassigned user stories\n 1." + story.Description;
+                                }
+                                else
+                                {
+                                    await Task.Delay(10000);
+                                    return "There are no unassigned user stories";
+                                }
                             }
                         }
                     }
@@ -121,33 +137,13 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
                                     UPDATE BCMCHMicro.dbo.UserStories
                                     SET Status = @Status
                                     WHERE Id = @Id";
+                    input = "split the user story";
                     using (SqlCommand command = new SqlCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@Status", "Assigned");
                         command.Parameters.AddWithValue("@Id", 1);
                         await connection.OpenAsync();
                         await command.ExecuteNonQueryAsync();
-                        string selectQuery = @"
-                SELECT Id, Description, Status
-                FROM BCMCHMicro.dbo.UserStories
-                WHERE Id = @Id";
-
-                        using (SqlCommand selectCommand = new SqlCommand(selectQuery, connection))
-                        {
-                            selectCommand.Parameters.AddWithValue("@Id", 1);
-
-                            using (SqlDataReader reader = await selectCommand.ExecuteReaderAsync())
-                            {
-                                if (await reader.ReadAsync())
-                                {
-                                    story = new UserStory
-                                    {
-                                        Description = reader.GetString(1),
-                                        Status = reader.GetString(2)
-                                    };
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -157,14 +153,14 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
             }
         }
 
-        if (story != null)
-        {
-            string storyJson = JsonSerializer.Serialize(story, new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
-            input = $"{input}\n\nuser story: {storyJson}";
-        }
+        //if (story != null)
+        //{
+        //    string storyJson = JsonSerializer.Serialize(story, new JsonSerializerOptions
+        //    {
+        //        WriteIndented = true
+        //    });
+        //    input = $"{input}\n\nuser story: {storyJson}";
+        //}
 
         var activityData = new
         {
@@ -182,7 +178,7 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
         };
 
         await httpClient.SendAsync(sendMessageRequest);
-        await Task.Delay(13000);
+        await Task.Delay(20000);
 
         var getActivitiesRequest = new HttpRequestMessage(HttpMethod.Get, $"{apiLink}/conversations/{agentKey}/activities");
         getActivitiesRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
