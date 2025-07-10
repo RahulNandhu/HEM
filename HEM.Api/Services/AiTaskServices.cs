@@ -11,7 +11,7 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
     public async Task<string> TaskSplitting(string user, string input)
     {
         var apiLink = configuration["CopilotAi:ApiLink"];
-        var apiKey = configuration["CopilotAi:ApiKey"];
+        var apiKey = configuration["CopilotAi:AdminKey"];
         using var httpClient = new HttpClient();
         httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
         var connectionString = configuration.GetSection("ConnectionStrings")["DefaultConnection"];
@@ -23,7 +23,7 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
         }
         else if (user.ToLower() == "salim")
         {
-            apiKey = configuration["CopilotAi:ApiKey"];
+            apiKey = configuration["CopilotAi:AdminKey"];
         }
         else if(user.ToLower() == "shiyas") {
             apiKey = configuration["CopilotAi:SKey"];
@@ -47,6 +47,8 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
                     await connection.OpenAsync();
 
                     agentKey = await command.ExecuteScalarAsync() as string;
+                    //agentKey = "6H4mgJoUAYKHvLLjqtlwnn-in"; pri
+                    //agentKey = ""
                 }
             }
         }
