@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace HEM.Api.Services;
 
@@ -83,16 +84,25 @@ public class AiTaskServices(IConfiguration configuration) : IAiTaskService
             {
                 using (SqlConnection connection = new SqlConnection(connectionString))
                 {
-                    string query = $@"
-                                   SELECT TOP 1 Status, Description
-                                   FROM BCMCHMicro.dbo.UserStories
-                                   WHERE Id = 1";
+                    string query = @"
+                                SELECT TOP 1 Status, Description
+                                FROM BCMCHMicro.dbo.UserStories
+                                WHERE Status = @status";
+
+                   
+
                     using (SqlCommand command = new SqlCommand(query, connection))
                     {
-                        command.Parameters.AddWithValue("@Id", 1);
+                        command.Parameters.AddWithValue("@status", "unassigned");
+                        //command.Parameters.AddWithValue("@data", "unassigned");
                         await connection.OpenAsync();
                         using (SqlDataReader reader = await command.ExecuteReaderAsync())
                         {
+                            if (!reader.HasRows)
+                            {
+                                await Task.Delay(10000);
+                                return "There are no unassigned user stories";
+                            }
                             if (await reader.ReadAsync())
                             {
                                 story = new UserStory
